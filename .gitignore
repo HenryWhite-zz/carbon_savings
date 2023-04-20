@@ -1,0 +1,5 @@
+/.pytest_cache
+/.venv
+/conftest.py
+/gitignore
+/__pycache__
