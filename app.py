@@ -242,5 +242,7 @@ app.layout = dbc.Container([
     )
 ])
 
-if __name__ == '__main__':
-    app.run_server(debug=True)
+# Run server if a development environment
+if os.environ.get('ENVIRONMENT') == 'development':
+    if __name__ == '__main__':
+        app.run_server(debug=True)
