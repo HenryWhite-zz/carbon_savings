@@ -11,13 +11,17 @@ import plotly.express as px
 import src.carbon_savings_calc as carbon_savings_calc
 import src.constants as constants
 
-# Create app
+# Set asset folder location
 assets_folder = os.path.join(os.path.dirname(__file__), '..', 'assets')
 
+# Create app
 # Set dash bootstrap components theme and link to custom.css file
 app = dash.Dash(__name__,
                 external_stylesheets=[dbc.themes.DARKLY, 'assets/custom.css'])
 
+# Reference the underlying flask app
+# (Used by gunicorn webserver in Heroku production deployment)
+server = app.server 
 
 # Create summary of CO2 and monetary savings
 @app.callback(
