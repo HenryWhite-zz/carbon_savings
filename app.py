@@ -6,10 +6,15 @@ from dash import html
 from dash.dependencies import Input, Output
 import pandas as pd # noqa F401
 import plotly.express as px
+from dotenv import load_dotenv
 
 # Local imports
 import src.carbon_savings_calc as carbon_savings_calc
 import src.constants as constants
+
+# Load environment variables
+env_path = os.path.join(os.getcwd(), '.env')
+load_dotenv(dotenv_path=env_path)
 
 # Set asset folder location
 assets_folder = os.path.join(os.path.dirname(__file__), '..', 'assets')
@@ -22,6 +27,9 @@ app = dash.Dash(__name__,
 # Reference the underlying flask app
 # (Used by gunicorn webserver in Heroku production deployment)
 server = app.server 
+
+# Set browser tab title
+app.title = "Carbon Savings Calculator" 
 
 # Create summary of CO2 and monetary savings
 @app.callback(
@@ -247,6 +255,6 @@ app.layout = dbc.Container([
 ])
 
 # Run server if a development environment
-if os.environ.get('ENVIRONMENT') == 'development':
+if os.getenv('ENVIRONMENT') == 'development':
     if __name__ == '__main__':
         app.run_server(debug=True)
