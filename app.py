@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 # Local imports
 import src.carbon_savings_calc as carbon_savings_calc
 import src.constants as constants
+import etl.etl_pandas as etl_pandas
 
 # Load environment variables
 env_path = os.path.join(os.getcwd(), '.env')
@@ -22,7 +23,9 @@ assets_folder = os.path.join(os.path.dirname(__file__), '..', 'assets')
 # Create app
 # Set dash bootstrap components theme and link to custom.css file
 app = dash.Dash(__name__,
-                external_stylesheets=[dbc.themes.DARKLY, 'assets/custom.css'])
+                external_stylesheets=[dbc.themes.DARKLY,
+                                      dbc.icons.BOOTSTRAP,
+                                      'assets/custom.css'])
 
 # Reference the underlying flask app
 # (Used by gunicorn webserver in Heroku production deployment)
@@ -171,11 +174,49 @@ def update_annual_miles_input(value):
         return value, value
 
 
+# Set Balancing Authority options based on State
+@app.callback(
+    Output('ba-dropdown', 'options'),
+    Output('ba-dropdown', 'disabled'),
+    Output('ba-dropdown', 'placeholder'),
+    Input('state-dropdown', 'value'),
+    )
+def set_ba_options(state):
+    return [
+        {'label': i, 'value': i} for i in 
+        df[df['state']==state]['ba_name']], False, 'Select Balancing Authority'
+
+
 results_card = html.Div(
     id='savings_desc',
     style={'display': 'none'}
 )
 
+df = etl_pandas.extract_excel_zip(
+    'https://www.eia.gov/electricity/data/eia861/zip/f8612021.zip',
+    'Balancing_Authority_2021.xlsx')
+
+df = etl_pandas.transform_ba(df)
+
+state_dropdown = dcc.Dropdown(
+    placeholder="Select your state",
+    options=sorted(df.state.unique()),
+    id='state-dropdown',
+    style={
+    'color': 'black'
+    },
+)
+
+ba_dropdown = dcc.Dropdown(
+    placeholder="Select state first",
+    options=sorted(df.ba_name.unique()),
+    id='ba-dropdown',
+    style={
+    'color': 'black'
+    },
+    disabled=True,
+    optionHeight=60,
+)
 
 input_card = dbc.Card([
     html.H4('Gas vehicle info'),
@@ -207,6 +248,12 @@ input_card = dbc.Card([
     html.Br(),
     html.Br(),
     html.H4('Electric vehicle info', className='custom-header'),
+    dbc.Label('State', className='label2'),
+    state_dropdown,
+    html.Div([
+        dbc.Label('Balancing Authority ', className='label2'),
+        html.I(className="bi bi-info-circle-fill me-2", style={'color':'grey'})]),
+    ba_dropdown,
     dbc.Label('kWh per mile', className='label2'),
     dbc.Input(id='kpm_input', type='number',
               value=constants.kpm_avg,
