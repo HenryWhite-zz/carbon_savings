@@ -168,7 +168,7 @@ def update_annual_miles_input(value):
     if value is None:
         return None, None
     try:
-        float_value = float(value.replace(',', '').replace('$', ''))
+        float_value = float(''.join(filter(str.isdigit, value)))
         return "{:,.0f}".format(float_value), float_value
     except ValueError:
         return value, value
@@ -179,12 +179,16 @@ def update_annual_miles_input(value):
     Output('ba-dropdown', 'options'),
     Output('ba-dropdown', 'disabled'),
     Output('ba-dropdown', 'placeholder'),
-    Input('state-dropdown', 'value'),
+    Input('state-dropdown', 'value')
     )
 def set_ba_options(state):
-    return [
-        {'label': i, 'value': i} for i in 
-        df[df['state']==state]['ba_name']], False, 'Select Balancing Authority'
+    if state:
+        return [
+            {'label': html.Span([i], className='ba_dropdown_item'),
+             'value': i} for i in df[df['state'] == state]['ba_name']],\
+                False, 'Select Balancing Authority'
+    else:
+        return [], True, 'Select State First'
 
 
 results_card = html.Div(
@@ -202,23 +206,19 @@ state_dropdown = dcc.Dropdown(
     placeholder="Select your state",
     options=sorted(df.state.unique()),
     id='state-dropdown',
-    style={
-    'color': 'black'
-    },
+    className='dropdown',
 )
 
+
 ba_dropdown = dcc.Dropdown(
-    placeholder="Select state first",
-    options=sorted(df.ba_name.unique()),
     id='ba-dropdown',
-    style={
-    'color': 'black'
-    },
+    className='dropdown',
     disabled=True,
     optionHeight=60,
 )
 
 input_card = dbc.Card([
+    html.P('Enter your info below, or keep the national average default values.'),
     html.H4('Gas vehicle info'),
     dbc.Label('Annual miles driven', className='label2'),
     dbc.Input(id='annual_miles_input',
@@ -252,7 +252,13 @@ input_card = dbc.Card([
     state_dropdown,
     html.Div([
         dbc.Label('Balancing Authority ', className='label2'),
-        html.I(className="bi bi-info-circle-fill me-2", style={'color':'grey'})]),
+        html.I(className="bi bi-info-circle-fill me-2", id='ba_tooltip_target'),  # noqa: E501
+        dbc.Tooltip(
+            "A Balancing Authority controls the electricity grid.  "
+            "It is often your electric utility.  "
+            "Check with your utility if you're unsure.",
+            target="ba_tooltip_target"
+        )]),
     ba_dropdown,
     dbc.Label('kWh per mile', className='label2'),
     dbc.Input(id='kpm_input', type='number',
@@ -282,7 +288,7 @@ app.layout = dbc.Container([
     html.Hr(),
     dbc.Container([
         dbc.Row([
-            dbc.Col(input_card, md=3),
+            dbc.Col(input_card, md=4),
             dbc.Col(html.Div(
                 dbc.Spinner(
                     [emissions_graph, results_card],
@@ -294,16 +300,9 @@ app.layout = dbc.Container([
     ]),
     html.Br(),
     html.Footer(
-        children=[html.Span([
-            'Created by ',
-            html.A('Henry White',
-                   href='https://www.linkedin.com/in/henry-a-white/',
-                   target='_blank'),
-            '.',
-            html.Br()
-            ]),
-            ],
-        className='custom-footer'
+        dcc.Markdown('Created by [Henry White](https://www.linkedin.com/in/henry-a-white/) in 2023.  '  # noqa:E501
+                     'Source code on [GitHub](https://github.com/HenryWhite-zz/carbon_savings).'),  # noqa:E501
+                     className='custom-footer'  # noqa: E131
     ),
     # Add hidden divs for chained callbacks for type conversion & formatting
     html.Div(id='gas_cost_float', style={'display': 'none'}),

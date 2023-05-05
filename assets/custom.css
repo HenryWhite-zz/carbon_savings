@@ -1,3 +1,7 @@
+.ba_dropdown_item {
+  border-bottom: 1px solid black;
+}
+
 .card {
   padding: 10px;
 }
@@ -14,8 +18,17 @@
   text-align: center;
 }
 
+.dropdown {
+  color: black;
+}
+
 .label2 {
   margin: 5px 0px 0px 0px;
+}
+
+#ba_tooltip_target {
+  margin: 0px 0px 0px 5px;
+  color: grey;
 }
 
 #savings_desc {

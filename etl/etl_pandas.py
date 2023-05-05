@@ -4,6 +4,7 @@ from zipfile import ZipFile
 import pandas as pd
 import os
 
+
 def extract_excel_zip(url, file):
     # Extract excel file from a zipped folder
     # Check if it already exists
@@ -18,18 +19,5 @@ def extract_excel_zip(url, file):
 
 
 def transform_ba(df):
-    df.columns=['year', 'ba_id', 'ba_code', 'state', 'ba_name']
+    df.columns = ['year', 'ba_id', 'ba_code', 'state', 'ba_name']
     return df
-
-# Temporarily calling functions for easy verification
-"""
-df = extract_excel_zip('https://www.eia.gov/electricity/data/eia861/zip/f8612021.zip',
-                  'Balancing_Authority_2021.xlsx')
-
-df = transform_ba(df)
-
-print(df)
-
-df2 = df[df['state'] == 'MT']['ba_name']
-print(df2)
-"""
