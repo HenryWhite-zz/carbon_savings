@@ -7,6 +7,7 @@ from dash.dependencies import Input, Output
 import pandas as pd # noqa F401
 import plotly.express as px
 from dotenv import load_dotenv
+import requests
 
 # Local imports
 import src.carbon_savings_calc as carbon_savings_calc
@@ -16,6 +17,9 @@ import etl.etl_pandas as etl_pandas
 # Load environment variables
 env_path = os.path.join(os.getcwd(), '.env')
 load_dotenv(dotenv_path=env_path)
+
+# Set API key
+api_key_eia = os.getenv('API_KEY_EIA')
 
 # Set asset folder location
 assets_folder = os.path.join(os.path.dirname(__file__), '..', 'assets')
@@ -35,6 +39,56 @@ server = app.server
 app.title = "Carbon Savings Calculator"
 
 
+# Calculate CO2 emitted per MWh by Balancing Authority
+@app.callback(
+    Output(component_id='CO2_per_MWh_lbs', component_property='children'),
+    Input(component_id='ba-dropdown', component_property='value'),
+)
+def calc_co2_by_ba(ba_code):
+    if ba_code:
+        # Set base url for API
+        url = ('https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/'
+               'data/?frequency=daily&data[0]=value&sort[0][column]=period'
+               '&sort[0][direction]=desc&offset=0&length=5000')
+
+        # Add balancing authority to URL
+        url += '&facets[respondent][]=' + ba_code
+
+        # Add time range hardcoded to 2022
+        url += '&start=2022-01-01&end=2022-12-31'
+
+        # Add API key
+        url += '&api_key=' + api_key_eia
+
+        # Get data and compile into DataFrame
+        df = pd.DataFrame()
+        r = requests.get(url)
+        json_data = r.json()
+        temp_df = pd.DataFrame.from_dict(json_data)
+        df = pd.DataFrame(temp_df.loc['data', 'response'])
+
+        # Check for valid return, use national average in case of failure
+        if df.empty:
+            return constants.CO2_per_MWh_avg
+        else:
+            # Fix datatypes
+            df['value'] = df['value'].astype('int64')
+            df['period'] = pd.to_datetime(df['period'])
+
+            # Pull in average CO2 emissions per MWh produced
+            df['CO2_factor'] = df['type-name'].map(constants.CO2_by_fuel_type)
+
+            # Calculate CO2 emissions
+            # Convert from MWk to kWh and apply CO2 factor
+            df['CO2_emissions'] = df['value']*1000 * df['CO2_factor']
+
+            # Calculate CO2 emissions per MWh
+            co2_per_mwh = df['CO2_emissions'].sum()/df['value'].sum()
+
+            # Return CO2 emissions per MWh
+            return co2_per_mwh
+
+
 # Create summary & graph of CO2 and monetary savings
 @app.callback(
     Output(component_id='savings_desc', component_property='children'),
@@ -47,6 +101,7 @@ app.title = "Carbon Savings Calculator"
     Input(component_id='gas_cost_float', component_property='children'),
     Input(component_id='kpm_input', component_property='value'),
     Input(component_id='elec_cost_float', component_property='children'),
+    Input(component_id='CO2_per_MWh_lbs', component_property='children')
 )
 def eval_electric_summary(n_clicks,
                           mpg=constants.mpg_avg,
@@ -183,10 +238,11 @@ def update_annual_miles_input(value):
     )
 def set_ba_options(state):
     if state:
-        return [
-            {'label': html.Span([i], className='ba_dropdown_item'),
-             'value': i} for i in df[df['state'] == state]['ba_name']],\
-                False, 'Select Balancing Authority'
+        df_subset = ba_mapping[ba_mapping['state'] == state]
+        return [{'label': html.Span(i, className='ba_dropdown_item'),
+                 'value': j} for i, j in zip(df_subset['ba_name'],
+                                             df_subset['ba_code'])],\
+                  False, 'Select Balancing Authority'  # noqa:E127
     else:
         return [], True, 'Select State First'
 
@@ -196,15 +252,19 @@ results_card = html.Div(
     style={'display': 'none'}
 )
 
-df = etl_pandas.extract_excel_zip(
+# Create ba_mapping dataframe to map states to balancing authorities
+
+# Extract excel file of mapping
+ba_mapping = etl_pandas.extract_excel_zip(
     'https://www.eia.gov/electricity/data/eia861/zip/f8612021.zip',
     'Balancing_Authority_2021.xlsx')
 
-df = etl_pandas.transform_ba(df)
+# Transform dataframe column names for ease of use
+ba_mapping = etl_pandas.transform_ba(ba_mapping)
 
 state_dropdown = dcc.Dropdown(
     placeholder="Select your state",
-    options=sorted(df.state.unique()),
+    options=sorted(ba_mapping.state.unique()),
     id='state-dropdown',
     className='dropdown',
 )
@@ -218,7 +278,7 @@ ba_dropdown = dcc.Dropdown(
 )
 
 input_card = dbc.Card([
-    html.P('Enter your info below, or keep the national average default values.'),
+    html.P('Enter your info below, or keep the national avg. default values.'),
     html.H4('Gas vehicle info'),
     dbc.Label('Annual miles driven', className='label2'),
     dbc.Input(id='annual_miles_input',
@@ -304,13 +364,14 @@ app.layout = dbc.Container([
                      'Source code on [GitHub](https://github.com/HenryWhite-zz/carbon_savings).'),  # noqa:E501
                      className='custom-footer'  # noqa: E131
     ),
-    # Add hidden divs for chained callbacks for type conversion & formatting
+    # Add hidden divs for chained callbacks
     html.Div(id='gas_cost_float', style={'display': 'none'}),
     html.Div(id='elec_cost_float', style={'display': 'none'}),
     html.Div(id='annual_miles_float', style={'display': 'none'}),
+    html.Div(id='CO2_per_MWh_lbs', style={'display': 'none'})
 ])
 
 # Run server if a development environment
 if os.getenv('ENVIRONMENT') == 'development':
     if __name__ == '__main__':
-        app.run_server(debug=True)
+        app.run(debug=True)

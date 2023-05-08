@@ -40,3 +40,13 @@ CO2_from_gallon_gasoline_lbs = (
 # Average CO2 Per MWh
 # Source: https://www.epa.gov/egrid/power-profiler#/
 CO2_per_MWh_avg = 852.3
+
+# Pounds of CO2 emitted per kWh produced for various fuel types
+# Source: https://www.eia.gov/tools/faqs/faq.php?id=74&t=11
+CO2_by_fuel_type = {}
+CO2_by_fuel_type['Solar'] = 0
+CO2_by_fuel_type['Petroleum'] = 2.44
+CO2_by_fuel_type['Hydro'] = 0
+CO2_by_fuel_type['Natural gas'] = .97
+CO2_by_fuel_type['Coal'] = 2.26
+CO2_by_fuel_type['Wind'] = 0
